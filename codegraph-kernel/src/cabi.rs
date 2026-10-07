@@ -1055,6 +1055,62 @@ End Class"#),
     }
 
     #[test]
+    fn test_all_vendored_grammars_have_valid_licenses() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let grammars_dir = std::path::Path::new(manifest_dir).join("grammars");
+        let vendored_dirs = [
+            "kotlin",
+            "lua",
+            "scala",
+            "dart",
+            "arkts",
+            "terraform",
+            "objc",
+            "solidity",
+            "erlang",
+            "pascal",
+            "cfml_family",
+            "nix",
+            "cobol",
+            "vbnet",
+        ];
+
+        for name in vendored_dirs {
+            let dir = grammars_dir.join(name);
+            assert!(dir.is_dir(), "Grammar dir does not exist: {:?}", dir);
+            let license_path = dir.join("LICENSE");
+            assert!(
+                license_path.is_file(),
+                "Grammar {:?} is missing LICENSE file at {:?}",
+                name,
+                license_path
+            );
+
+            let content = std::fs::read_to_string(&license_path)
+                .unwrap_or_else(|e| panic!("Failed to read {:?}: {e}", license_path));
+
+            assert!(
+                content.len() >= 500,
+                "LICENSE for {:?} is too short ({} bytes, expected >= 500 bytes of genuine license text)",
+                name,
+                content.len()
+            );
+
+            let lower = content.to_ascii_lowercase();
+            assert!(
+                lower.contains("copyright"),
+                "LICENSE for {:?} must include Copyright notice",
+                name
+            );
+            assert!(
+                lower.contains("license") || lower.contains("permission is hereby granted"),
+                "LICENSE for {:?} must contain legal grant/license terms",
+                name
+            );
+        }
+    }
+
+    #[test]
     fn test_all_32_grammars_parity_with_wasm_dump() {
         let dump_path = concat!(env!("CARGO_MANIFEST_DIR"), "/tools/wasm-grammars-dump.json");
         let dump_content = match std::fs::read_to_string(dump_path) {
