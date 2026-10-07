@@ -155,6 +155,35 @@ cg_result *cg_cfnptr_scan_files(const uint8_t *json, size_t len);
 cg_result *cg_cfnptr_strip_c(const uint8_t *text, size_t len);
 
 /**
+ * Parses UTF-8 source code using Tree-sitter in UTF-16 input recovery mode and serializes
+ * the complete AST recovery tree to JSON in slot 5.
+ *
+ * Input parameters:
+ * - source: UTF-8 source text bytes. Must be valid UTF-8 (status 1 if invalid).
+ * - language: UTF-8 language identifier bytes.
+ *
+ * Output JSON in slot 5:
+ * {"version":1,"types":[...],"fields":[...],"nodes":[{"t":...,"p":...,"f":...,"sb":...,"eb":...,"si":...,"ei":...,"sr":...,"sc":...,"er":...,"ec":...,"flags":...}],"root":0,"hasError":...}
+ *
+ * On failure, status is non-zero (1 invalid UTF-8, 2 unsupported, 3 parser failure, 4 panic)
+ * and slot 6 contains the UTF-8 error string.
+ * Returns an allocated cg_result* handle. Must be released with cg_result_free().
+ */
+cg_result *cg_parse_tree(
+    const uint8_t *source,
+    size_t source_len,
+    const uint8_t *language,
+    size_t lang_len
+);
+
+/**
+ * Returns supported native parser languages JSON in slot 5:
+ * {"languages":[...]}
+ * Returns an allocated cg_result* handle. Must be released with cg_result_free().
+ */
+cg_result *cg_parser_languages(void);
+
+/**
  * Returns the status code of a result handle.
  * Returns CG_STATUS_INVALID_ARGUMENT (1) if result is NULL.
  * Provably panic-free when called with NULL or a valid cg_result pointer.

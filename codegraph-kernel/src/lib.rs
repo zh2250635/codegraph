@@ -54,6 +54,7 @@ mod python;
 mod tsjs;
 
 pub mod core_api;
+pub mod parse_tree;
 
 #[cfg(feature = "cabi")]
 pub mod cabi;

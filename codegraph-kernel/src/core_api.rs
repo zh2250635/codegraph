@@ -212,3 +212,23 @@ pub fn cfnptr_scan_files_core(files: &[CfnptrFileInDto]) -> Vec<CfnptrFactsDto> 
 pub fn cfnptr_strip_c_core(text: &[u8]) -> Vec<u8> {
     crate::cfnptr::strip_c(text)
 }
+
+pub fn parse_tree_core(source: &str, language: &str) -> Result<Vec<u8>, ExtractError> {
+    match crate::parse_tree::parse_tree(source, language) {
+        Ok(tree_dto) => serde_json::to_vec(&tree_dto)
+            .map_err(|e| ExtractError::ExtractionFailure(format!("failed to serialize parse tree: {e}"))),
+        Err(err) => {
+            if err.starts_with("unsupported language") {
+                Err(ExtractError::UnsupportedLanguage(err))
+            } else {
+                Err(ExtractError::ExtractionFailure(err))
+            }
+        }
+    }
+}
+
+pub fn parser_languages_core() -> Result<Vec<u8>, ExtractError> {
+    let langs = crate::parse_tree::parser_languages();
+    serde_json::to_vec(&langs)
+        .map_err(|e| ExtractError::ExtractionFailure(format!("failed to serialize parser languages: {e}")))
+}

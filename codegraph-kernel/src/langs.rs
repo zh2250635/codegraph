@@ -34,11 +34,36 @@ extern "C" {
     fn tree_sitter_dart() -> *const ();
 }
 
+// 12 Additional grammars (vendored C / build.rs) for Go migration & parse_tree
+extern "C" {
+    fn tree_sitter_arkts() -> *const ();
+    fn tree_sitter_hcl() -> *const ();
+    fn tree_sitter_objc() -> *const ();
+    fn tree_sitter_solidity() -> *const ();
+    fn tree_sitter_erlang() -> *const ();
+    fn tree_sitter_pascal() -> *const ();
+    fn tree_sitter_cfml() -> *const ();
+    fn tree_sitter_cfscript() -> *const ();
+    fn tree_sitter_cfquery() -> *const ();
+    fn tree_sitter_nix() -> *const ();
+    fn tree_sitter_COBOL() -> *const ();
+    fn tree_sitter_vbnet() -> *const ();
+}
+
 /// Languages this kernel binary can extract (reported by contractInfo;
 /// TS-side routing policy decides what actually routes).
+/// STRICT CONTRACT: exactly 20 languages to preserve the extraction contract oracle.
 pub const LANGUAGES: [&str; 20] = [
     "typescript", "tsx", "javascript", "jsx", "java", "python", "go", "c", "cpp", "rust",
     "csharp", "ruby", "php", "swift", "kotlin", "r", "lua", "luau", "scala", "dart",
+];
+
+/// Languages supported by the tree-sitter AST parse_tree API.
+pub const PARSER_LANGUAGES: [&str; 32] = [
+    "typescript", "tsx", "javascript", "jsx", "java", "python", "go", "c", "cpp", "rust",
+    "csharp", "ruby", "php", "swift", "kotlin", "r", "lua", "luau", "scala", "dart",
+    "arkts", "pascal", "objc", "solidity", "erlang", "nix", "cobol", "vbnet", "terraform",
+    "cfml", "cfscript", "cfquery",
 ];
 
 pub fn grammar_for(language: &str) -> Option<Language> {
@@ -92,6 +117,42 @@ pub fn grammar_for(language: &str) -> Option<Language> {
         // (same commit as the byte-copied tree-sitter-wasms 0.1.13 artifact).
         "dart" => {
             Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_dart) }.into())
+        }
+        "arkts" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_arkts) }.into())
+        }
+        "terraform" | "hcl" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_hcl) }.into())
+        }
+        "objc" | "objective-c" | "objectivec" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_objc) }.into())
+        }
+        "solidity" | "sol" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_solidity) }.into())
+        }
+        "erlang" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_erlang) }.into())
+        }
+        "pascal" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_pascal) }.into())
+        }
+        "cfml" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_cfml) }.into())
+        }
+        "cfscript" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_cfscript) }.into())
+        }
+        "cfquery" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_cfquery) }.into())
+        }
+        "nix" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_nix) }.into())
+        }
+        "cobol" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_COBOL) }.into())
+        }
+        "vbnet" => {
+            Some(unsafe { tree_sitter_language::LanguageFn::from_raw(tree_sitter_vbnet) }.into())
         }
         _ => None,
     }

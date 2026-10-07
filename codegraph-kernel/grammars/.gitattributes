@@ -1,0 +1,2 @@
+# Keep vendored grammar sources byte-identical to the audited upstream revisions.
+* whitespace=-blank-at-eol
