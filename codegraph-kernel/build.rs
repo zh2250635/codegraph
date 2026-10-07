@@ -1,4 +1,5 @@
 fn main() {
+    #[cfg(feature = "napi")]
     napi_build::setup();
 
     // Kotlin grammar — vendored C, compiled here instead of a crate dep: the
