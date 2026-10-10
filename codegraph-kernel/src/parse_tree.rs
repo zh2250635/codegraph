@@ -62,6 +62,14 @@ pub fn build_utf16_to_utf8_map(source: &str, total_utf16_len: usize) -> Vec<usiz
 
 /// Parses UTF-8 source for the requested language using tree-sitter with UTF-16 input.
 pub fn parse_tree(source: &str, language: &str) -> Result<ParseTreeDto, String> {
+    parse_tree_with_timeout(source, language, DEFAULT_PARSE_TIMEOUT)
+}
+
+fn parse_tree_with_timeout(
+    source: &str,
+    language: &str,
+    timeout: Duration,
+) -> Result<ParseTreeDto, String> {
     let grammar = crate::langs::grammar_for(language)
         .ok_or_else(|| format!("unsupported language: {language}"))?;
 
@@ -75,7 +83,8 @@ pub fn parse_tree(source: &str, language: &str) -> Result<ParseTreeDto, String> 
 
     let start_time = Instant::now();
     let mut progress = |_: &tree_sitter::ParseState| -> bool {
-        start_time.elapsed() <= DEFAULT_PARSE_TIMEOUT
+        // tree-sitter 0.25 returns None when this callback returns true.
+        start_time.elapsed() >= timeout
     };
     let mut parse_options = ParseOptions::new();
     parse_options = parse_options.progress_callback(&mut progress);
@@ -89,8 +98,15 @@ pub fn parse_tree(source: &str, language: &str) -> Result<ParseTreeDto, String> 
         )
         .ok_or_else(|| format!("tree-sitter parse failure or timeout for {language}"))?;
 
-    let root_node = tree.root_node();
-    let has_error = root_node.has_error();
+    encode_tree(source, &tree, &utf16_to_utf8)
+}
+
+fn encode_tree(
+    source: &str,
+    tree: &tree_sitter::Tree,
+    utf16_to_utf8: &[usize],
+) -> Result<ParseTreeDto, String> {
+    let has_error = tree.root_node().has_error();
 
     let mut types: Vec<String> = Vec::new();
     let mut type_to_idx: HashMap<String, u32> = HashMap::new();
@@ -139,20 +155,6 @@ pub fn parse_tree(source: &str, language: &str) -> Result<ParseTreeDto, String> 
         let er = ep.row as u32;
         let ec = (ep.column / 2) as u32;
 
-        let mut flags = 0u32;
-        if node.is_named() {
-            flags |= 1;
-        }
-        if node.is_missing() {
-            flags |= 2;
-        }
-        if node.is_error() {
-            flags |= 4;
-        }
-        if node.has_error() {
-            flags |= 8;
-        }
-
         nodes.push(ParseTreeNodeDto {
             t: type_idx,
             p: parent_idx,
@@ -165,7 +167,7 @@ pub fn parse_tree(source: &str, language: &str) -> Result<ParseTreeDto, String> 
             sc,
             er,
             ec,
-            flags,
+            flags: node_flags(node),
         });
 
         if cursor.goto_first_child() {
@@ -196,6 +198,52 @@ pub fn parse_tree(source: &str, language: &str) -> Result<ParseTreeDto, String> 
         root: 0,
         has_error,
     })
+}
+
+fn node_flags(node: tree_sitter::Node<'_>) -> u32 {
+    // DTO bit order: named, missing, error, contains error.
+    u32::from(node.is_named())
+        | (u32::from(node.is_missing()) << 1)
+        | (u32::from(node.is_error()) << 2)
+        | (u32::from(node.has_error()) << 3)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn medium_cpp_source() -> String {
+        (0..4000)
+            .map(|i| format!("int function_{i}(int x) {{ return x + {i}; }}\n"))
+            .collect()
+    }
+
+    #[test]
+    fn progress_checks_do_not_cancel_before_deadline() {
+        let source = medium_cpp_source();
+        let dto = parse_tree(&source, "cpp").expect("parse medium C++ source");
+        assert!(!dto.has_error);
+        assert_eq!(dto.nodes[0].eb as usize, source.len());
+        let function_type = dto.types.iter().position(|t| t == "function_definition").unwrap();
+        let functions = dto.nodes.iter().filter(|n| n.t as usize == function_type).count();
+        assert_eq!(functions, 4000);
+    }
+
+    #[test]
+    fn expired_deadline_cancels_at_progress_check() {
+        let error = parse_tree_with_timeout(&medium_cpp_source(), "cpp", Duration::ZERO)
+            .expect_err("the source must be large enough to trigger progress checks");
+        assert!(error.contains("timeout"), "{error}");
+    }
+
+    #[test]
+    fn utf16_offsets_preserve_non_bmp_source() {
+        let source = "const char *s = \"😀\";\nint last() { return 1; }\n";
+        let dto = parse_tree(source, "cpp").unwrap();
+        assert!(!dto.has_error);
+        assert_eq!(dto.nodes[0].eb as usize, source.len());
+        assert_eq!(dto.nodes[0].ei as usize, source.encode_utf16().count());
+    }
 }
 
 /// Returns the currently supported parser languages for tree generation.
